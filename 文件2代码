@@ -1,0 +1,29 @@
+\documentclass{ctexart} %文件类型
+%%导言区
+%插入宏包
+\usepackage{graphicx} % Required for inserting images
+\usepackage{geometry} %设置页边距
+\usepackage{lipsum} %生成虚拟文本
+\usepackage{fancyhdr} %自定义页眉页脚
+\usepackage{lastpage}
+% 设置文章格式
+\geometry{left=2.5cm,right=2.5cm,top=2cm,bottom=2cm} %设置页边距
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\LaTeX{}教程}   %左页眉    注：首页默认不显示页眉
+\rhead{Cloudy\_Xiao}   %其中的斜杠起到将下划线转译的作用
+\cfoot{第 \thepage 页（共 \pageref{LastPage} 页)}   %中间页脚
+\title{学在华科大（LaTeX版）}    %标题（默认大写）
+\author{Qian Xiao}
+\date{\today}   
+
+%$正文区
+\begin{document} %文件开始
+
+\maketitle
+
+\section{Introduction}
+\lipsum[1-5] %插入三段虚拟文本
+
+
+\end{document}
