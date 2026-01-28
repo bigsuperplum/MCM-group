@@ -3,7 +3,7 @@ clc; clear; close all;
 
 %% 1. 数据准备
 disp('1. 正在加载与预处理数据...');
-load matlab.mat
+load rawdata.mat
 % 确保数据是列向量
 data = btc.Value; 
 % 为了演示效果，如果数据太长可以截取前500个点，实际使用请注释掉下一行
