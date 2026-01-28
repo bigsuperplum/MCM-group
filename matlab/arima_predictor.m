@@ -1,0 +1,140 @@
+%=================== 高性能优化版 ARIMA 预测代码 ===================%
+clc; clear; close all;
+
+%% 1. 数据准备
+disp('1. 正在加载与预处理数据...');
+load matlab.mat
+% 确保数据是列向量
+data = btc.Value; 
+% 为了演示效果，如果数据太长可以截取前500个点，实际使用请注释掉下一行
+% data = data(1:500); 
+
+size_data = size(data, 1);
+
+% 设定从哪里开始预测（例如从第100个点开始，因为ARIMA需要足够历史数据初始化）
+start_idx = 100; 
+
+%% 2. 模型定阶 (Grid Search) - 只运行一次
+% 相比原代码每一步都跑循环，这里只在开始时确定一次最佳 p,d,q
+disp('2. 正在进行平稳性检验与模型定阶 (Grid Search)...');
+
+% --- A. 自动确定差分阶数 d ---
+d = 0;
+temp_data = data(1:start_idx);
+% 使用 KPSS 检验，h=1 表示不平稳，d 最大限制为 2
+while (kpsstest(temp_data) == 1) && (d < 2)
+    temp_data = diff(temp_data);
+    d = d + 1;
+end
+fprintf('   -> 自动判定差分阶数 d = %d\n', d);
+
+% --- B. 自动确定最佳 p 和 q (基于 AIC) ---
+% 选取前 start_idx 个数据用来定阶
+train_data = data(1:start_idx);
+max_ar = 10; 
+max_ma = 10;
+minAIC = inf;
+best_p = 0; best_q = 0;
+
+% 这个双重循环只跑一次，不会花太久
+for p = 0:max_ar
+    for q = 0:max_ma
+        try
+            % 创建模型结构
+            Mdl = arima(p, d, q);
+            % 估计参数，关闭显示
+            [~, ~, logL] = estimate(Mdl, train_data, 'Display', 'off');
+            % 计算 AIC
+            aic = -2 * logL + 2 * (p + q + 1);
+            
+            if aic < minAIC
+                minAIC = aic;
+                best_p = p;
+                best_q = q;
+            end
+        catch
+            continue;
+        end
+    end
+end
+fprintf('   -> 最佳模型结构: ARIMA(%d, %d, %d)\n', best_p, d, best_q);
+
+%% 3. 极速滚动预测 (Rolling Forecast)
+disp('3. 开始滚动预测...');
+
+% [优化关键点1] 预分配内存，避免数组动态扩容
+predictMat = zeros(size_data, 1);
+% 初始部分用真实值填充
+predictMat(1:start_idx-1) = data(1:start_idx-1);
+
+% [优化关键点2] 定义模型更新频率
+% Update_Freq = 1  : 每次都重新估计参数 (最准，但最慢，类似你原来的逻辑)
+% Update_Freq = 50 : 每50步重新估计一次 (速度飞快，精度几乎不变)
+Update_Freq = 10; 
+
+% 初始化模型模板
+Mdl_Template = arima(best_p, d, best_q);
+% 初次估计
+try
+    EstMdl = estimate(Mdl_Template, data(1:start_idx-1), 'Display', 'off');
+catch
+    % 如果初次估计失败，给一个默认备用
+    EstMdl = arima(best_p, d, best_q); 
+end
+
+% 进度条
+hWait = waitbar(0, '正在高速预测中...');
+
+tic; % 计时开始
+for i = start_idx : size_data
+    
+    % 更新进度条
+    if mod(i, 50) == 0
+        waitbar((i-start_idx)/(size_data-start_idx), hWait, sprintf('进度: %.1f%%', (i-start_idx)/(size_data-start_idx)*100));
+    end
+    
+    % 准备历史数据
+    history = data(1:i-1);
+    
+    % [优化关键点3] 稀疏更新策略
+    % 只有在特定的步数，才消耗 CPU 去做繁重的 estimate
+    if mod(i, Update_Freq) == 0
+        try
+            EstMdl = estimate(Mdl_Template, history, 'Display', 'off');
+        catch
+            % 如果某次估计不收敛，直接跳过，沿用上一次的模型参数
+        end
+    end
+    
+    % [预测] 进行一步向后预测
+    % forecast 函数会自动处理 d 阶差分的还原
+    [fcast, ~] = forecast(EstMdl, 1, 'Y0', history);
+    
+    predictMat(i) = fcast;
+end
+t_cost = toc;
+close(hWait);
+
+fprintf('   -> 预测完成，耗时: %.2f 秒\n', t_cost);
+
+%% 4. 可视化与评估
+figure('Color', 'w');
+plot(1:size_data, data, 'b-', 'LineWidth', 1.2); hold on;
+plot(start_idx:size_data, predictMat(start_idx:end), 'r--', 'LineWidth', 1.5);
+
+% 为了看清楚，只显示后半部分
+xlim([start_idx, size_data]); 
+
+title(sprintf('ARIMA(%d,%d,%d) 滚动预测效果 (每 %d 步更新参数)', best_p, d, best_q, Update_Freq));
+legend('真实值 (Real)', '预测值 (Forecast)');
+xlabel('时间点'); ylabel('数值');
+grid on;
+
+% 计算 RMSE
+rmse = sqrt(mean((data(start_idx:end) - predictMat(start_idx:end)).^2));
+fprintf('   -> 均方根误差 (RMSE): %.4f\n', rmse);
+
+predictMat = predictMat(start_idx:end);
+data = data(start_idx - 1:end - 1);
+
+rexp = (predictMat - data) ./ data
