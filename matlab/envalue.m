@@ -8,7 +8,7 @@ size_test = length(test_data);
 money = zeros(size_test, 1);
 money(1) = 1000;
 
-threshold = 0.05;
+threshold = 0.03;
 cost = 0.01;  % 手续费建议用更合理的值
 have = 0;
 
