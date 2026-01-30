@@ -13,7 +13,7 @@ cost = 0.01;  % 手续费建议用更合理的值
 have = 0;
 
 rexp = (test_pred - prev_data) ./ prev_data;
-rexp = [rexp(2:end);0];
+rexp = rexp(1:end);
 buy_signal = (rexp > threshold);
 sell_signal = (rexp < -threshold);
 

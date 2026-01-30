@@ -154,4 +154,4 @@ fprintf('   -> 涨跌方向预测准确率: %.2f%%\n', acc);
 
 %%
 data = raw_prices
-predictMat = [data(1:start_idx);pred_y]
+predictMat = pred_prices

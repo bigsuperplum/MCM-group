@@ -22,7 +22,7 @@ disp('2. 正在进行平稳性检验与模型定阶 (Grid Search)...');
 d = 0;
 temp_data = data(1:start_idx);
 % 使用 KPSS 检验，h=1 表示不平稳，d 最大限制为 2
-while (kpsstest(temp_data) == 1) && (d < 10)
+while (kpsstest(temp_data) == 1) && (d < 5)
     temp_data = diff(temp_data);
     d = d + 1;
 end
@@ -31,8 +31,8 @@ fprintf('   -> 自动判定差分阶数 d = %d\n', d);
 % --- B. 自动确定最佳 p 和 q (基于 AIC) ---
 % 选取前 start_idx 个数据用来定阶
 train_data = data(1:start_idx);
-max_ar = 10; 
-max_ma = 10;
+max_ar = 3; 
+max_ma = 3;
 minAIC = inf;
 best_p = 0; best_q = 0;
 
